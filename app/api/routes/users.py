@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.database.session import get_db
 from app.schemas.user import (UserCreate, UserResponse, UserUpdate,)
@@ -48,7 +49,7 @@ def get_users(db: Session = Depends(get_db),):
     "/{user_id}",
     response_model=UserResponse,
 )
-def get_user(user_id: int, db: Session = Depends(get_db),):
+def get_user(user_id: UUID, db: Session = Depends(get_db),):
     user = user_service.get_user_by_id(
         db,
         user_id,
@@ -66,7 +67,7 @@ def get_user(user_id: int, db: Session = Depends(get_db),):
     "/{user_id}",
     response_model=UserResponse,
 )
-def update_user(user_id: int, user_data: UserUpdate, db: Session = Depends(get_db),):
+def update_user(user_id: UUID, user_data: UserUpdate, db: Session = Depends(get_db),):
     user = user_service.get_user_by_id(
         db,
         user_id,
@@ -102,7 +103,7 @@ def update_user(user_id: int, user_data: UserUpdate, db: Session = Depends(get_d
     "/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def delete_user(user_id: int, db: Session = Depends(get_db),):
+def delete_user(user_id: UUID, db: Session = Depends(get_db),):
     user = user_service.get_user_by_id(
         db,
         user_id,
