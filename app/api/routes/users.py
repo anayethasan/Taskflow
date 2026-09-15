@@ -1,38 +1,48 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from uuid import UUID
 
-from app.database.session import get_db
-from app.schemas.user import (UserCreate, UserResponse, UserUpdate,)
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database.session import get_db
+from app.schemas.user import (
+    UserCreate,
+    UserResponse,
+    UserUpdate,
+)
 from app.services import user_service
+
 
 router = APIRouter(
     prefix="/users",
     tags=["Users"],
 )
 
+
 @router.post(
     "/",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def user_create(user_data: UserCreate, db:Session=Depends(get_db)):
-    existing_user = user_service.get_user_by_email(
+async def user_create(
+    user_data: UserCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    existing_user = await user_service.get_user_by_email(
         db,
         user_data.email,
     )
-    
-    if(existing_user):
+
+    if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
         )
-    
-    user = user_service.create_user(
+
+    user = await user_service.create_user(
         db,
-        user_data,    
+        user_data,
     )
+
     return user
 
 
@@ -40,17 +50,23 @@ def user_create(user_data: UserCreate, db:Session=Depends(get_db)):
     "/",
     response_model=list[UserResponse],
 )
-def get_users(db: Session = Depends(get_db),):
-    users = user_service.get_users(db)
+async def get_users(
+    db: AsyncSession = Depends(get_db),
+):
+    users = await user_service.get_users(db)
 
     return users
+
 
 @router.get(
     "/{user_id}",
     response_model=UserResponse,
 )
-def get_user(user_id: UUID, db: Session = Depends(get_db),):
-    user = user_service.get_user_by_id(
+async def get_user(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await user_service.get_user_by_id(
         db,
         user_id,
     )
@@ -63,12 +79,17 @@ def get_user(user_id: UUID, db: Session = Depends(get_db),):
 
     return user
 
+
 @router.patch(
     "/{user_id}",
     response_model=UserResponse,
 )
-def update_user(user_id: UUID, user_data: UserUpdate, db: Session = Depends(get_db),):
-    user = user_service.get_user_by_id(
+async def update_user(
+    user_id: UUID,
+    user_data: UserUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await user_service.get_user_by_id(
         db,
         user_id,
     )
@@ -80,7 +101,7 @@ def update_user(user_id: UUID, user_data: UserUpdate, db: Session = Depends(get_
         )
 
     if user_data.email:
-        existing_user = user_service.get_user_by_email(
+        existing_user = await user_service.get_user_by_email(
             db,
             user_data.email,
         )
@@ -91,7 +112,7 @@ def update_user(user_id: UUID, user_data: UserUpdate, db: Session = Depends(get_
                 detail="Email already registered",
             )
 
-    updated_user = user_service.update_user(
+    updated_user = await user_service.update_user(
         db,
         user,
         user_data,
@@ -99,12 +120,16 @@ def update_user(user_id: UUID, user_data: UserUpdate, db: Session = Depends(get_
 
     return updated_user
 
+
 @router.delete(
     "/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def delete_user(user_id: UUID, db: Session = Depends(get_db),):
-    user = user_service.get_user_by_id(
+async def delete_user(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await user_service.get_user_by_id(
         db,
         user_id,
     )
@@ -115,7 +140,7 @@ def delete_user(user_id: UUID, db: Session = Depends(get_db),):
             detail="User not found",
         )
 
-    user_service.delete_user(
+    await user_service.delete_user(
         db,
         user,
     )

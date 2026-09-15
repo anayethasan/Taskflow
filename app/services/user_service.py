@@ -1,56 +1,57 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from uuid import UUID
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
 
-def create_user(db: Session, user_data: UserCreate,)-> User:
+async def create_user(db: AsyncSession, user_data: UserCreate,)-> User:
     user = User(
         name=user_data.name,
         email=user_data.email,
         hashed_password=user_data.hashed_password,
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     
     return user
 
-def get_users(db: Session,) -> list[User]:
+async def get_users(db: AsyncSession,) -> list[User]:
     statement = select(User)
 
-    result = db.execute(statement)
+    result = await db.execute(statement)
 
     users = result.scalars().all()
 
     return users
 
 
-def get_user_by_id(db: Session, user_id: int,) -> User | None:
+async def get_user_by_id(db: AsyncSession, user_id: UUID,) -> User | None:
     statement = select(User).where(
         User.id == user_id
     )
 
-    result = db.execute(statement)
+    result = await db.execute(statement)
 
     user = result.scalar_one_or_none()
 
     return user
 
 
-def get_user_by_email(db: Session, email: str,) -> User | None:
+async def get_user_by_email(db: AsyncSession, email: str,) -> User | None:
     statement = select(User).where(
         User.email == email
     )
 
-    result = db.execute(statement)
+    result = await db.execute(statement)
 
     user = result.scalar_one_or_none()
 
     return user
 
 
-def update_user(db: Session, user: User,user_data: UserUpdate,) -> User:
+async def update_user(db: AsyncSession, user: User,user_data: UserUpdate,) -> User:
     update_data = user_data.model_dump(
         exclude_unset=True
     )
@@ -58,13 +59,13 @@ def update_user(db: Session, user: User,user_data: UserUpdate,) -> User:
     for field, value in update_data.items():
         setattr(user, field, value)
 
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
 
     return user
 
 
-def delete_user(db: Session, user: User,) -> None:
-    db.delete(user)
+async def delete_user(db: AsyncSession, user: User,) -> None:
+    await db.delete(user)
 
-    db.commit()
+    await db.commit()

@@ -11,6 +11,7 @@ from app.core.security import (create_access_token, create_refresh_token, verify
 from app.schemas.auth import LoginRequest, TokenResponse
 
 from app.core.dependencies import get_current_user
+from fastapi.security import OAuth2PasswordRequestForm
 
 router = APIRouter(
     prefix="/auth",
@@ -47,13 +48,16 @@ async def register(data: RegisterRequest, db: AsyncSession=Depends(get_db)):
     return user
 
 
-@router.post( "/login",
+@router.post("/login",
     response_model=TokenResponse,
 )
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db),):
+async def login(
+    data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db),
+):
     user = await get_user_by_email(
         db,
-        data.email
+        data.username
     )
 
     if not user:
@@ -85,13 +89,8 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db),):
             detail="User account is inactive",
         )
 
-    access_token = create_access_token(
-        user.id,
-    )
-
-    refresh_token = create_refresh_token(
-        user.id,
-    )
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
 
     return TokenResponse(
         access_token=access_token,
