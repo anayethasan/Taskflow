@@ -13,3 +13,4 @@ def generate_slug(value: str) -> str:
     value = value.strip("-")
 
     return value
+

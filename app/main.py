@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.api.routes import users
 from app.api.routes import auth
 from app.api.routes import organizations
+from app.api.routes import projects
 
 app = FastAPI(
     title="Taskflow API",
@@ -12,6 +13,7 @@ app = FastAPI(
 app.include_router(users.router)
 app.include_router(auth.router)
 app.include_router(organizations.router)
+app.include_router(projects.router)
 
 @app.get("/")
 def root():

@@ -12,6 +12,12 @@ from app.models.organization_member import (OrganizationMember, OrganizationRole
 from app.crud.organization import get_membership
 from app.models.user import User
 
+from app.crud.project import get_project_membership
+from app.models.project_member import ProjectRole
+
+from app.crud.project import get_project_membership
+from app.crud import project as project_crud
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
@@ -120,3 +126,99 @@ async def require_organization_permission( organization_id: UUID, permission: st
 
     return membership
 
+
+def has_project_permission( role: ProjectRole, permission: str, ) -> bool:
+
+    permissions = {
+        ProjectRole.OWNER: {
+            "view_project",
+            "update_project",
+            "delete_project",
+            "view_members",
+            "add_member",
+            "remove_member",
+            "update_member_role",
+        },
+
+        ProjectRole.ADMIN: {
+            "view_project",
+            "update_project",
+            "view_members",
+            "add_member",
+            "remove_member",
+            "update_member_role",
+        },
+
+        ProjectRole.MEMBER: {
+            "view_project",
+            "view_members",
+        },
+    }
+
+    return permission in permissions.get(
+        role,
+        set(),
+    )
+
+# async def require_project_permission( project_id: UUID, permission: str, current_user: User, db: AsyncSession,):
+    
+#     membership = await get_project_membership(
+#         db,
+#         project_id,
+#         current_user.id,
+#     )
+
+#     if not membership:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Project not found",
+#         )
+
+#     if not has_project_permission(membership.role, permission,):
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="You do not have permission to perform this action",
+#         )
+
+#     return membership
+
+
+async def require_project_permission(
+    project_id: UUID,
+    permission: str,
+    current_user: User,
+    db: AsyncSession,
+):
+    project = await project_crud.get_project(
+        db,
+        project_id,
+    )
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
+    membership = await project_crud.get_project_membership(
+        db,
+        project_id,
+        current_user.id,
+    )
+
+    if not membership:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
+    if not has_project_permission(
+        membership.role,
+        permission,
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to perform this action",
+        )
+
+    return project, membership
