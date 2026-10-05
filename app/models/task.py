@@ -111,3 +111,11 @@ class Task(Base):
         "User",
         foreign_keys=[assigned_to],
     )
+    
+    notifications = relationship(
+        "Notification",
+        back_populates="task",
+        cascade="all, delete-orphan",
+    )
+    
+    

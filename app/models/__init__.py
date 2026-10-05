@@ -4,4 +4,4 @@ from app.models.organization_member import OrganizationMember
 from app.models.project import Project
 from app.models.project_member import ProjectMember
 from app.models.task import Task
-
+from app.models.notification import Notification

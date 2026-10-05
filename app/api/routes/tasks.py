@@ -33,6 +33,11 @@ from app.schemas.task import (
     TaskStatusUpdate,
     TaskUpdate,
 )
+from fastapi import BackgroundTasks
+from app.services.notification import (
+    send_task_assigned_notification,
+    send_task_status_notification,
+)
 
 router = APIRouter(
     tags=["Tasks"],
@@ -282,9 +287,8 @@ async def delete_task(
 async def assign_task(
     task_id: UUID,
     data: TaskAssignmentUpdate,
-    current_user: User = Depends(
-        get_current_user
-    ),
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     
@@ -307,7 +311,6 @@ async def assign_task(
     )
 
     if data.assigned_to is not None:
-
         membership = await get_project_membership(
             db,
             task.project_id,
@@ -320,23 +323,34 @@ async def assign_task(
                 detail="User is not a member of this project",
             )
 
-    return await task_crud.assign_task(
-        db,
-        task,
-        data.assigned_to,
+    task = await task_crud.assign_task(
+        db=db,
+        task=task,
+        user_id=data.assigned_to,
     )
+
+    if data.assigned_to is not None:
+        background_tasks.add_task(
+            send_task_assigned_notification,
+            data.assigned_to,
+            task.id,
+            task.title,
+        )
+
+    return task
+    
+    
     
 @router.patch("/tasks/{task_id}/status",
     response_model=TaskResponse,
 )
 async def update_status(
-    task_id: UUID,
-    data: TaskStatusUpdate,
-    current_user: User = Depends(
-        get_current_user
-    ),
+    task_id: UUID, data: TaskStatusUpdate, 
+    background_tasks: BackgroundTasks, 
+    current_user: User = Depends(get_current_user), 
     db: AsyncSession = Depends(get_db),
 ):
+    
     task = await task_crud.get_task(
         db,
         task_id,
@@ -355,11 +369,24 @@ async def update_status(
         db,
     )
 
-    return await task_crud.update_task_status(
-        db,
-        task,
-        TaskStatus(data.status.value),
+    task = await task_crud.update_task_status(
+        db=db,
+        task=task,
+        status=TaskStatus(data.status.value),
     )
+
+    if task.assigned_to is not None:
+        background_tasks.add_task(
+            send_task_status_notification,
+            task.assigned_to,
+            task.id,
+            task.title,
+            task.status.value,
+        )
+
+    return task
+
+
     
 @router.patch("/tasks/{task_id}/priority",
     response_model=TaskResponse,
