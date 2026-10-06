@@ -17,6 +17,11 @@ from app.schemas.project import (AddProjectMemberRequest, ProjectCreate, Project
 from app.core.utils import generate_slug
 
 
+from app.core.cache import (
+    delete_cache,
+    get_cache,
+    set_cache,
+)
 
 router = APIRouter(
     prefix="/projects",
@@ -50,30 +55,62 @@ async def create_project(organization_id: UUID, data: ProjectCreate, current_use
     return project
 
 
+# @router.get("/{project_id}",
+#     response_model=ProjectResponse,
+# )
+# async def get_project(project_id: UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),):
+    
+#     await require_project_permission(
+#         project_id,
+#         "view_project",
+#         current_user,
+#         db,
+#     )
+
+#     project = await project_crud.get_project(
+#         db,
+#         project_id,
+#     )
+
+#     if not project:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="Project not found",
+#         )
+
+#     return project
+
 @router.get("/{project_id}",
     response_model=ProjectResponse,
 )
-async def get_project(project_id: UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),):
-    
-    await require_project_permission(
-        project_id,
-        "view_project",
-        current_user,
-        db,
+async def get_project(
+    project_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project, membership = await require_project_permission(
+        project_id=project_id,
+        permission="view_project",
+        current_user=current_user,
+        db=db,
     )
 
-    project = await project_crud.get_project(
-        db,
-        project_id,
+    cache_key = f"project:{project_id}"
+
+    cached_project = await get_cache(cache_key)
+
+    if cached_project is not None:
+        return cached_project
+
+    response = ProjectResponse.model_validate(project)
+
+    await set_cache(
+        cache_key,
+        response.model_dump(mode="json"),
+        expire=300,
     )
 
-    if not project:
-        raise HTTPException(
-            status_code=404,
-            detail="Project not found",
-        )
-
-    return project
+    return response
 
 @router.get("/organizations/{organization_id}/projects",
     response_model=list[ProjectResponse],

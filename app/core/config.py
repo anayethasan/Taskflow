@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     APP_VERSION: str
     DEBUG: bool = True
 
+    REDIS_URL: str = "redis://localhost:6379/0"
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
 

@@ -6,6 +6,8 @@ from app.api.routes import projects
 from app.api.routes import tasks
 from app.api.routes import notifications
 
+from app.core.redis import redis_client
+
 app = FastAPI(
     title="Taskflow API",
     description="Team and project management api",
@@ -26,4 +28,12 @@ def root():
 @app.get("/health")
 def health_check():
     return {"message": "healthy"}
+
+@app.get("/redis")
+async def redis_health():
+    result = await redis_client.ping()
+
+    return {
+        "redis": "ok" if result else "failed"
+    }
 
