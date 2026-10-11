@@ -1,26 +1,40 @@
+
+from datetime import date
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.task import (
-    Task,
-    TaskPriority,
-    TaskStatus,
-)
+from app.models.task import Task, TaskPriority, TaskStatus
 
-async def get_task(db: AsyncSession, task_id: UUID,):
-    
+
+# =========================
+# Get Task
+# =========================
+async def get_task(
+    db: AsyncSession,
+    task_id: UUID,
+) -> Task | None:
     result = await db.execute(
-        select(Task).where(
-            Task.id == task_id
-        )
+        select(Task).where(Task.id == task_id)
     )
 
     return result.scalar_one_or_none()
 
-async def create_task( db: AsyncSession, project_id: UUID, user_id: UUID, title: str, description: str | None, assigned_to: UUID | None, priority: TaskPriority, due_date,):
-    
+
+# =========================
+# Create Task
+# =========================
+async def create_task(
+    db: AsyncSession,
+    project_id: UUID,
+    user_id: UUID,
+    title: str,
+    description: str | None = None,
+    assigned_to: UUID | None = None,
+    priority: TaskPriority = TaskPriority.MEDIUM,
+    due_date: date | None = None,
+) -> Task:
     task = Task(
         project_id=project_id,
         created_by=user_id,
@@ -32,16 +46,27 @@ async def create_task( db: AsyncSession, project_id: UUID, user_id: UUID, title:
         status=TaskStatus.TODO,
     )
 
-    db.add(task)
-
-    await db.commit()
-
-    await db.refresh(task)
+    try:
+        db.add(task)
+        await db.commit()
+        await db.refresh(task)
+    except Exception:
+        await db.rollback()
+        raise
 
     return task
 
-async def update_task(db: AsyncSession, task: Task, title: str | None = None, description: str | None = None, due_date=None,):
-    
+
+# =========================
+# Update Task
+# =========================
+async def update_task(
+    db: AsyncSession,
+    task: Task,
+    title: str | None = None,
+    description: str | None = None,
+    due_date: date | None = None,
+) -> Task:
     if title is not None:
         task.title = title
 
@@ -51,46 +76,90 @@ async def update_task(db: AsyncSession, task: Task, title: str | None = None, de
     if due_date is not None:
         task.due_date = due_date
 
-    await db.commit()
-
-    await db.refresh(task)
+    try:
+        await db.commit()
+        await db.refresh(task)
+    except Exception:
+        await db.rollback()
+        raise
 
     return task
 
-async def delete_task(db: AsyncSession, task: Task,):
-    
-    await db.delete(task)
 
-    await db.commit()
-    
-async def assign_task(db: AsyncSession, task: Task, user_id: UUID | None,):
-    
+# =========================
+# Delete Task
+# =========================
+async def delete_task(
+    db: AsyncSession,
+    task: Task,
+) -> None:
+    try:
+        await db.delete(task)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+
+# =========================
+# Assign / Unassign Task
+# =========================
+async def assign_task(
+    db: AsyncSession,
+    task: Task,
+    user_id: UUID | None,
+) -> Task:
     task.assigned_to = user_id
 
-    await db.commit()
-
-    await db.refresh(task)
+    try:
+        await db.commit()
+        await db.refresh(task)
+    except Exception:
+        await db.rollback()
+        raise
 
     return task
 
-async def update_task_status( db: AsyncSession, task: Task, status: TaskStatus, ):
+
+# =========================
+# Update Task Status
+# =========================
+async def update_task_status(
+    db: AsyncSession,
+    task: Task,
+    status: TaskStatus,
+) -> Task:
     task.status = status
 
-    await db.commit()
-
-    await db.refresh(task)
+    try:
+        await db.commit()
+        await db.refresh(task)
+    except Exception:
+        await db.rollback()
+        raise
 
     return task
 
-async def update_task_priority(db: AsyncSession, task: Task, priority: TaskPriority,):
-    
+
+# =========================
+# Update Task Priority
+# =========================
+async def update_task_priority(
+    db: AsyncSession,
+    task: Task,
+    priority: TaskPriority,
+) -> Task:
     task.priority = priority
 
-    await db.commit()
-
-    await db.refresh(task)
+    try:
+        await db.commit()
+        await db.refresh(task)
+    except Exception:
+        await db.rollback()
+        raise
 
     return task
+
 
 async def get_project_tasks(
     db: AsyncSession,
@@ -103,65 +172,20 @@ async def get_project_tasks(
     search: str | None = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-):
-    base_query = select(Task).where(
-        Task.project_id == project_id
-    )
+) -> tuple[list[Task], int]:
 
-    count_query = select(
-        func.count(Task.id)
-    ).where(
-        Task.project_id == project_id
-    )
+    # Validate pagination
+    if page < 1:
+        raise ValueError("Page must be greater than or equal to 1")
 
-    # Status filter
-    if status is not None:
-        base_query = base_query.where(
-            Task.status == status
-        )
+    if not 1 <= page_size <= 100:
+        raise ValueError("Page size must be between 1 and 100")
 
-        count_query = count_query.where(
-            Task.status == status
-        )
+    # Validate sorting order
+    if sort_order not in {"asc", "desc"}:
+        raise ValueError("Sort order must be 'asc' or 'desc'")
 
-    # Priority filter
-    if priority is not None:
-        base_query = base_query.where(
-            Task.priority == priority
-        )
-
-        count_query = count_query.where(
-            Task.priority == priority
-        )
-
-    # Assignee filter
-    if assigned_to is not None:
-        base_query = base_query.where(
-            Task.assigned_to == assigned_to
-        )
-
-        count_query = count_query.where(
-            Task.assigned_to == assigned_to
-        )
-
-    # Search
-    if search:
-        search_pattern = f"%{search}%"
-
-        search_filter = (
-            Task.title.ilike(search_pattern)
-            | Task.description.ilike(search_pattern)
-        )
-
-        base_query = base_query.where(
-            search_filter
-        )
-
-        count_query = count_query.where(
-            search_filter
-        )
-
-    # Sorting
+    # Allowed sorting columns
     sort_columns = {
         "created_at": Task.created_at,
         "updated_at": Task.updated_at,
@@ -170,40 +194,77 @@ async def get_project_tasks(
         "priority": Task.priority,
     }
 
-    sort_column = sort_columns.get(
-        sort_by,
-        Task.created_at,
+    sort_column = sort_columns.get(sort_by)
+
+    if sort_column is None:
+        raise ValueError("Invalid sort_by field")
+
+    # Base filters
+    filters = [
+        Task.project_id == project_id,
+    ]
+
+    # Status filter
+    if status is not None:
+        filters.append(Task.status == status)
+
+    # Priority filter
+    if priority is not None:
+        filters.append(Task.priority == priority)
+
+    # Assigned user filter
+    if assigned_to is not None:
+        filters.append(Task.assigned_to == assigned_to)
+
+    # Search by title or description
+    if search and search.strip():
+        search_pattern = f"%{search.strip()}%"
+
+        filters.append(
+            or_(
+                Task.title.ilike(search_pattern),
+                Task.description.ilike(search_pattern),
+            )
+        )
+
+    # Main query
+    base_query = (
+        select(Task)
+        .where(*filters)
     )
 
+    # Count query
+    count_query = (
+        select(func.count(Task.id))
+        .where(*filters)
+    )
+
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+
+    # Sorting
     if sort_order == "asc":
         base_query = base_query.order_by(
-            sort_column.asc()
+            sort_column.asc().nulls_last(),
+            Task.id.asc(),
         )
     else:
         base_query = base_query.order_by(
-            sort_column.desc()
+            sort_column.desc().nulls_last(),
+            Task.id.asc(),
         )
-
-    # Count
-    total_result = await db.execute(
-        count_query
-    )
-
-    total = total_result.scalar_one()
 
     # Pagination
     offset = (page - 1) * page_size
 
-    base_query = base_query.offset(
-        offset
-    ).limit(
-        page_size
-    )
-
-    result = await db.execute(
+    base_query = (
         base_query
+        .offset(offset)
+        .limit(page_size)
     )
 
-    tasks = result.scalars().all()
+    # Execute query
+    result = await db.execute(base_query)
+    tasks = list(result.scalars().all())
 
     return tasks, total

@@ -5,6 +5,7 @@ from app.api.routes import organizations
 from app.api.routes import projects
 from app.api.routes import tasks
 from app.api.routes import notifications
+from app.api.routes import external
 
 from app.core.redis import redis_client
 
@@ -20,6 +21,7 @@ app.include_router(organizations.router)
 app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(notifications.router)
+app.include_router(external.router)
 
 @app.get("/")
 def root():
