@@ -4,9 +4,11 @@ annotated-types==0.8.0
 anyio==4.14.2
 argon2-cffi==25.1.0
 argon2-cffi-bindings==26.1.0
+asyncpg==0.32.0
 certifi==2026.7.22
 cffi==2.1.1
 click==8.5.0
+colorama==0.4.6
 cryptography==50.0.1
 dnspython==2.8.0
 ecdsa==0.19.2
@@ -18,8 +20,11 @@ httpcore==1.0.9
 httptools==0.8.0
 httpx==0.28.1
 idna==3.19
+iniconfig==2.3.1
 Mako==1.4.1
 MarkupSafe==3.0.3
+packaging==26.3
+pluggy==1.6.0
 psycopg==3.3.4
 psycopg-binary==3.3.4
 psycopg2-binary==2.9.12
@@ -29,6 +34,9 @@ pycparser==3.0
 pydantic==2.13.4
 pydantic-settings==2.15.0
 pydantic_core==2.46.4
+Pygments==2.21.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
 python-dotenv==1.2.3
 python-jose==3.5.0
 python-multipart==0.0.32
